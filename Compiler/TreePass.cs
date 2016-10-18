@@ -78,9 +78,9 @@ namespace SyntaxAnalyser
 
         void processStamentPart(StatmentPart statmentPart)
         {
-
-            AppDomain domain = AppDomain.CurrentDomain;
-            AssemblyName assemblyName = new AssemblyName("test16");
+            
+        AppDomain domain = AppDomain.CurrentDomain;
+            AssemblyName assemblyName = new AssemblyName(Program.programName);
             AssemblyBuilder assemblyBuilder = domain.DefineDynamicAssembly(assemblyName, AssemblyBuilderAccess.RunAndSave, "./");
             ModuleBuilder moduleBuilder = assemblyBuilder.DefineDynamicModule(assemblyName.Name, assemblyName.Name + ".exe");
             TypeBuilder typeBuilder = moduleBuilder.DefineType("Project.Program", TypeAttributes.Public | TypeAttributes.AutoClass | TypeAttributes.BeforeFieldInit);

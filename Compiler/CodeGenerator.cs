@@ -75,9 +75,9 @@ namespace SyntaxAnalyser
             else //элемент массива
             {
                 _isArrayElementLeft = true;
-                Token leftOp = (Token)varibleStatment.getTokensList()[0];
+                _leftOp = (Token)varibleStatment.getTokensList()[0];
                 _elementIndex = (Token)varibleStatment.getTokensList()[2];
-                List<Token> rightOp = getRightOp(assignmentStatment.getTokensList()[1]);
+                _rightOp = getRightOp(assignmentStatment.getTokensList()[1]);
             }
             generate();
 
@@ -109,7 +109,7 @@ namespace SyntaxAnalyser
             return tokens;
         }
 
-        List<Token> getMathExpression(MathStatment mathStatment)
+        public static List<Token> getMathExpression(MathStatment mathStatment)
         {
             List<Token> tokens = new List<Token>();
             MathExpression mathExpression = (MathExpression)mathStatment.getTokensList()[0];
@@ -165,32 +165,30 @@ namespace SyntaxAnalyser
         Expression GetConst(string value)
         {
             List<ParameterExpression> vars = VarExpressionsList.GetList();
-            string param = "";
-            if (value.Contains("["))
-            {
-                param = value.Substring('[', ']');
-                value = value.Replace("[" + param + "]", "");
-            }
             for (int i = 0; i < vars.Count; i++)
             {
                 if (value == vars[i].Name)
                 {
-                    if (param != "")
-                    {
-                        for (int j = 0; j < vars.Count; j++)
-                        {
-                            if (value == vars[j].Name)
-                                return Expression.ArrayAccess(vars[i], vars[j]);
-                        }
-                        return Expression.ArrayAccess(vars[i], Expression.Constant(Int32.Parse(param)));
-                    }
-                    else
-                    {
-                        return vars[i];
-                    }
+                    return vars[i];
                 }
             }
             return Expression.Constant(Int32.Parse(value));
+            //for (int i = 0; i < vars.Count; i++)
+            //{
+            //    if (value == vars[i].Name)
+            //    {
+            //        for (int j = 0; j < vars.Count; j++)
+            //        {
+            //            if (value == vars[j].Name && vars[i].Type == typeof(int[]))
+            //                return Expression.ArrayAccess(vars[i], vars[j]);
+            //        }
+            //    }
+            //        else
+            //        {
+            //            return vars[i];
+            //        }
+            //}
+            //return Expression.Constant(Int32.Parse(value));
         }
 
         void generate()
@@ -208,7 +206,7 @@ namespace SyntaxAnalyser
                         {
                             for (int j = 0; j < _rightOp.Count; j++)
                             {
-                                ExpressionsList.AddExpression(Expression.Assign(Expression.ArrayAccess(left, Expression.Constant(j)), Expression.Constant(Int32.Parse(_rightOp[j].value))));                              
+                                ExpressionsList.AddExpression(Expression.Assign(Expression.ArrayAccess(vars[i], Expression.Constant(j)), Expression.Constant(Int32.Parse(_rightOp[j].value))));                              
                             }
                             return;
                         }
@@ -217,6 +215,12 @@ namespace SyntaxAnalyser
                             Expression result = GetConst(_rightOp[0].value);
                             for (int j = 0; j < _rightOp.Count - 1; j += 2)
                             {
+                                Expression rigth = GetConst(_rightOp[j + 2].value);
+                                if (_rightOp[j + 1].value == "[")
+                                {
+                                    result = Expression.ArrayAccess(GetConst(_rightOp[j].value), GetConst(_rightOp[j + 2].value));
+                                    j = j + 2;
+                                }
                                 switch(_rightOp[j + 1].value)
                                 {
                                     case "+":
@@ -244,28 +248,88 @@ namespace SyntaxAnalyser
             }
             else
             {
-                Expression left;
-
-                for (int i = 0; i < vars.Count; i++)
+                Expression left = Expression.ArrayAccess(GetConst(_leftOp.value), GetConst(_elementIndex.value));
+                Expression result = GetConst(_rightOp[0].value);
+                for (int j = 0; j < _rightOp.Count - 1; j += 2)
                 {
-                    if (_leftOp.value == vars[i].Name)
+                    Expression rigth = GetConst(_rightOp[j + 2].value);
+                    if (_rightOp[j + 1].value == "[")
                     {
-                        bool isConst = true;
-                        for (int j = 0; j < vars.Count; j++)
-                        {
-                            if (_elementIndex.value == vars[j].Name)
-                            {
-                                isConst = false;
-                                left = Expression.ArrayAccess(vars[i], vars[j]);
-                                break;
-                            }
-                        }
-                        if (isConst)
-                        {
-                            left = Expression.ArrayAccess(vars[i], Expression.Constant(Int32.Parse(_elementIndex.value)));
-                        }
+                        result = Expression.ArrayAccess(GetConst(_rightOp[j].value), GetConst(_rightOp[j + 2].value));
+                        j = j + 2;
+                    }
+                    switch (_rightOp[j + 1].value)
+                    {
+                        case "+":
+                            result = Expression.Add(result, GetConst(_rightOp[j + 2].value));
+                            break;
+                        case "-":
+                            result = Expression.Subtract(result, GetConst(_rightOp[j + 2].value));
+                            break;
+                        case "*":
+                            result = Expression.Multiply(result, GetConst(_rightOp[j + 2].value));
+                            break;
+                        case "%":
+                            result = Expression.Modulo(result, GetConst(_rightOp[j + 2].value));
+                            break;
+                        case "/":
+                            result = Expression.Divide(result, GetConst(_rightOp[j + 2].value));
+                            break;
                     }
                 }
+                ExpressionsList.AddExpression(Expression.Assign(left, result));
+                return;
+                //Expression left = null;
+
+                //for (int i = 0; i < vars.Count; i++)
+                //{
+                //    if (_leftOp.value == vars[i].Name)
+                //    {
+                //        bool isConst = true;
+                //        for (int j = 0; j < vars.Count; j++)
+                //        {
+                //            if (_elementIndex.value == vars[j].Name)
+                //            {
+                //                isConst = false;
+                //                left = Expression.ArrayAccess(vars[i], vars[j]);
+                //                break;
+                //            }
+                //        }
+                //        if (isConst)
+                //        {
+                //            left = Expression.ArrayAccess(vars[i], Expression.Constant(Int32.Parse(_elementIndex.value)));
+                //        }
+                //    }
+                //}
+                //for (int j = 0; j < _rightOp.Count - 1; j += 2)
+                //{
+                //    Expression rigth = GetConst(_rightOp[j + 2].value);
+                //    if (_rightOp[j + 1].value == "[")
+                //    {
+                //        left = Expression.ArrayAccess(GetConst(_rightOp[j].value), GetConst(_rightOp[j + 2].value));
+                //        j = j + 2;
+                //    }
+                //    switch (_rightOp[j + 1].value)
+                //    {
+                //        case "+":
+                //            ExpressionsList.AddExpression(Expression.Add(left, GetConst(_rightOp[j + 2].value)));
+                //            return;
+                //        case "-":
+                //            ExpressionsList.AddExpression(Expression.Subtract(left, GetConst(_rightOp[j + 2].value)));
+                //            return;
+                //        case "*":
+                //            ExpressionsList.AddExpression(Expression.Multiply(left, GetConst(_rightOp[j + 2].value)));
+                //            return;
+                //        case "%":
+                //            ExpressionsList.AddExpression(Expression.Modulo(left, GetConst(_rightOp[j + 2].value)));
+                //            return;
+                //        case "/":
+                //            ExpressionsList.AddExpression(Expression.Divide(left, GetConst(_rightOp[j + 2].value)));
+                //            return;
+                //    }
+                //}
+                //ExpressionsList.AddExpression(Expression.Assign(left, Expression.Constant(_rightOp[0].value)));
+                //return;
             }
         }
 
@@ -283,22 +347,31 @@ namespace SyntaxAnalyser
         bool _isArray = false;
         public void process(ReadStatment readStatment)
         {
-            VaribleStatment varibleStatment = (VaribleStatment)readStatment.getTokensList()[0];
-            if (varibleStatment.getTokensList().Count == 1) //для переменной
+            try
             {
+                VaribleStatment varibleStatment = (VaribleStatment)readStatment.getTokensList()[0];
                 _isArray = false;
-                _identifier = (Token)varibleStatment.getTokensList()[0];//нельзя вывести весь  массив
+                _identifier = (Token)varibleStatment.getTokensList()[0];
             }
-            else //для элемента массива
+            catch//для массива
             {
                 _isArray = true;
-                _identifier = (Token)varibleStatment.getTokensList()[0];
-                _elementIndex = (Token)varibleStatment.getTokensList()[2];
+                List<Token> tokens = AssignmentProcessor.getMathExpression((MathStatment)readStatment.getTokensList()[0]);
+                _identifier = tokens[0];
+                if (tokens.Count == 1)
+                {
+                    _isArray = false;
+                }
+                else
+                {
+                    _isArray = true;
+                    _elementIndex = tokens[2];
+                }
             }
             generate();
         }
 
-        void generate()
+            void generate()
         {
             List<ParameterExpression> vars = VarExpressionsList.GetList();
             if (_isArray)
@@ -348,6 +421,7 @@ namespace SyntaxAnalyser
                         Expression constant = Expression.Call(typeof(Console).GetMethod("ReadLine"));
                         constant = Expression.Call(typeof(Int32).GetMethod("Parse", new System.Type[] { typeof(string) }), constant);
                         ExpressionsList.AddExpression(Expression.Assign(vars[i], constant));
+                        return;
                     }
                 }
             }
@@ -363,17 +437,27 @@ namespace SyntaxAnalyser
 
         public void process(WriteStatment writeStatment)
         {
-            VaribleStatment varibleStatment = (VaribleStatment)writeStatment.getTokensList()[0];
-            if (varibleStatment.getTokensList().Count == 1) //для инта
+            try
             {
+                VaribleStatment varibleStatment = (VaribleStatment)writeStatment.getTokensList()[0];
                 _isArray = false;
                 _identifier = (Token)varibleStatment.getTokensList()[0];
             }
-            else //для массива
+            catch//для массива
             {
-                _isArray = true;
-                _identifier = (Token)varibleStatment.getTokensList()[0];
-                _elementIndex = (Token)varibleStatment.getTokensList()[2];
+
+                List<Token> tokens = AssignmentProcessor.getMathExpression((MathStatment)writeStatment.getTokensList()[0]);
+                _identifier = tokens[0];
+                if (tokens.Count == 1)
+                {
+                    _isArray = false;
+                }
+                else
+                {
+                    _isArray = true;
+                    _elementIndex = tokens[2];
+                }
+
             }
             generate();
         }
@@ -711,7 +795,14 @@ namespace SyntaxAnalyser
                 ExpressionsList.RemoveElement(x);
             }
             Expression rigth = Expression.Block(list);
-            ExpressionsList.AddExpression(Expression.Loop(Expression.IfThenElse(left, rigth, Expression.Break(label)), label));
+            var exitLabel = Expression.Label();
+
+            var block =
+            Expression.Loop(
+                  Expression.IfThenElse(
+                    left,
+                    rigth, Expression.Break(label)), label);
+            ExpressionsList.AddExpression(block);
         }
     }
 }
