@@ -551,8 +551,21 @@ namespace SyntaxAnalyser
             return leftExpression;
         }
 
-        void generate()
+        Expression GetConst(string value)
         {
+            List<ParameterExpression> vars = VarExpressionsList.GetList();
+            for (int i = 0; i < vars.Count; i++)
+            {
+                if (value == vars[i].Name)
+                {
+                    return vars[i];
+                }
+            }
+            return Expression.Constant(Int32.Parse(value));
+        }
+
+            void generate()
+            {
             Expression left = generateLeftExpression();
             Expression block = generateRightExpression(_thenExpression);
             if (isElseAppear)
@@ -582,25 +595,53 @@ namespace SyntaxAnalyser
         {
             //на тебе
             Expression left = null;
-            switch (_leftExpression[1].value)
+            Expression left_part = null;
+            Expression rigth_part = null;
+            string value = _leftExpression[1].value;
+            if (_leftExpression[1].value == "[")
+            {
+                left_part = Expression.ArrayAccess(GetConst(_leftExpression[0].value), GetConst(_leftExpression[2].value));
+                value = _leftExpression[4].value;
+                if (_leftExpression[6].value == "[")
+                {
+                    rigth_part = Expression.ArrayAccess(GetConst(_leftExpression[5].value), GetConst(_leftExpression[7].value));
+                }
+                else
+                {
+                    rigth_part = GetConst(_leftExpression[5].value);
+                }
+            }
+            else
+            {
+                left_part = GetConst(_leftExpression[0].value);
+                if (_leftExpression[3].value == "[")
+                {
+                    rigth_part = Expression.ArrayAccess(GetConst(_leftExpression[2].value), GetConst(_leftExpression[4].value));
+                }
+                else
+                {
+                    rigth_part = GetConst(_leftExpression[2].value);
+                }
+            }
+            switch (value)
             {
                 case "==":
-                    left = Expression.Equal(getPart(_leftExpression[0].value), getPart(_leftExpression[2].value));
+                    left = Expression.Equal(left_part, rigth_part);
                     break;
                 case ">=":
-                    left = Expression.GreaterThanOrEqual(getPart(_leftExpression[0].value), getPart(_leftExpression[2].value));
+                    left = Expression.GreaterThanOrEqual(left_part, rigth_part);
                     break;
                 case "!!":
-                    left = Expression.NotEqual(getPart(_leftExpression[0].value), getPart(_leftExpression[2].value));
+                    left = Expression.NotEqual(left_part, rigth_part);
                     break;
                 case ">":
-                    left = Expression.GreaterThan(getPart(_leftExpression[0].value), getPart(_leftExpression[2].value));
+                    left = Expression.GreaterThan(left_part, rigth_part);
                     break;
                 case "<=":
-                    left = Expression.LessThanOrEqual(getPart(_leftExpression[0].value), getPart(_leftExpression[2].value));
+                    left = Expression.LessThanOrEqual(left_part, rigth_part);
                     break;
                 case "<":
-                    left = Expression.LessThan(getPart(_leftExpression[0].value), getPart(_leftExpression[2].value));
+                    left = Expression.LessThan(left_part, rigth_part);
                     break;
                 default:
                     break;
