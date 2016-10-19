@@ -20,20 +20,26 @@ namespace Compiler
             proc.StartInfo.WindowStyle = ProcessWindowStyle.Normal;
             proc.Start();
             proc.WaitForExit();
+            //--------
 
-            //Sint
             SyntaxAnalyser.Program prog = new SyntaxAnalyser.Program();
-            //ITree tree = SyntaxAnalyser.Program.tree;
-            //if (!prog.IsSyntaxAnalysIsOK())
-             //   return -1;
-
-            //Semantic
-
-            //Code-Generation
-            //Generator.Generator gen = new Generator.Generator();
-            
-
-            return 0;
+            if (prog.IsProgCloseCorrect())
+            {
+                Console.WriteLine("Program is compiled. Do you want to run it?");
+                if (Console.Read() == 'y')
+                {
+                    Process pro = new Process();
+                    pro.StartInfo.UseShellExecute = true;
+                    pro.StartInfo.RedirectStandardOutput = false;
+                    pro.StartInfo.FileName = SyntaxAnalyser.Program.programName + ".exe";
+                    pro.StartInfo.WindowStyle = ProcessWindowStyle.Normal;
+                    pro.Start();
+                    pro.WaitForExit();
+                    return 0;
+                }
+            }
+        
+            return -1;
         }
     }
 }

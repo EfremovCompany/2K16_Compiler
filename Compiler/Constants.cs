@@ -18,7 +18,6 @@ namespace SyntaxAnalyser
             IF = "IF",
             WHILE = "WHILE",
             ASSIGN_OP = "ASSIGN_OP",
-            TO = "TO",
             MOD = "MOD",
             DO = "DO",
             THEN = "THEN",
@@ -82,6 +81,8 @@ namespace SyntaxAnalyser
             FACTOR = "Factor",
             MATH_OPERATOR = "MathOperator",
             RELATIONAL_OPERATOR = "RelationalOperator",
-            ENDPROGRAM = "ENDPROGRAM";
+            ENDPROGRAM = "ENDPROGRAM",
+            TO = "TO",
+            FROM = "FROM";
     }
 }

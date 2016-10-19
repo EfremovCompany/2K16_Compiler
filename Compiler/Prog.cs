@@ -10,9 +10,18 @@ namespace SyntaxAnalyser
     class Program
     {
         static public List<object> identifiers = new List<object>();
-        static public ITree tree;
         static public string programName = "";
-       
+        static public string varibleName = "";
+        static public bool isArrayElementLeft = false;
+
+        //
+        static bool isCorrect = true;
+
+        public bool IsProgCloseCorrect()
+        {
+            return isCorrect;
+        }
+
         public Program()
         {
             TokensList tokensList = new TokensList("Output.txt");
@@ -20,12 +29,55 @@ namespace SyntaxAnalyser
             {
                 Prgm prgm = new Prgm(tokensList);
                 TreePass treePass = new TreePass(prgm);
-                
+
             }
             catch (Exception e)
             {
                 Console.Write(e);
+                isCorrect = false;
             }
+        }
+    }
+
+    class Varible
+    {
+        public String _name = "";
+        public bool _isInit = false;
+        public String _type = "";
+        public int _length = 0;
+
+        public Varible(String name, string type)
+        {
+            _name = name;
+            _type = type;
+        }
+
+        public Varible(String name, string type, int length)
+        {
+            _name = name;
+            _type = type;
+            _length = length;
+        }
+
+        public void init()
+        {
+            _isInit = true;
+        }
+
+        public string getName()
+        {
+            return _type;
+        }
+
+        public string getType()
+        {
+            return _type;
+        }
+
+
+        public int getLength()
+        {
+            return _length;
         }
     }
 
@@ -126,7 +178,7 @@ namespace SyntaxAnalyser
     }
     */
 
-    
+
 }
 
 

@@ -9,29 +9,34 @@ namespace SyntaxAnalyser
 {
     class DefinerProcessor//объявление пермеременный в var
     {
-        Token _identifier = new Token();
+        Token identifier = new Token();
         Token _type = new Token();
         Token _length = new Token();
         bool _isArray = false;
 
         public void process(VaribleDeclaration varibleDeclaration)
         {
-            Token identifier = (Token)varibleDeclaration.getTokensList()[0];
+            identifier = (Token)varibleDeclaration.getTokensList()[0]; //рассказать про косяк сереге
             Type type = (Type)varibleDeclaration.getTokensList()[1];
-            _identifier = identifier;
             try //для массива
             {
                 ArrayType arrayType = (ArrayType)type.getTokensList()[0];
                 _isArray = true;
                 _type = (Token)arrayType.getTokensList()[0];
                 _length = (Token)arrayType.getTokensList()[1];
+                SemanticAnalizer.checkIsDefineAgain(identifier.value);
+                SemanticAnalizer.checkInitEmptyArray(identifier.value, Int32.Parse(_length.value));
+                SemanticAnalizer.addVarible(identifier.value, _type.value, Int32.Parse(_length.value));
             }
             catch  // для инта
             {
                 IntegerType integerType = (IntegerType)type.getTokensList()[0];
                 _isArray = false;
                 _type = (Token)integerType.getTokensList()[0];
+                SemanticAnalizer.checkIsDefineAgain(identifier.value);
+                SemanticAnalizer.addVarible(identifier.value, _type.value);
             }
+
             generate();
         }
 
@@ -40,7 +45,7 @@ namespace SyntaxAnalyser
             ParameterExpression ex;
             if (_isArray)
             {
-                ex = Expression.Variable(typeof(int[]), _identifier.value);
+                ex = Expression.Variable(typeof(int[]), identifier.value);
                 VarExpressionsList.AddExpression(ex);
                 ExpressionsList.AddExpression(ex);
                 //добавить ренжу
@@ -48,7 +53,7 @@ namespace SyntaxAnalyser
             }
             else
             {
-                ex = Expression.Variable(typeof(int), _identifier.value);
+                ex = Expression.Variable(typeof(int), identifier.value);
                 VarExpressionsList.AddExpression(ex);
                 ExpressionsList.AddExpression(ex);
             }
@@ -61,24 +66,34 @@ namespace SyntaxAnalyser
         bool _isMathRight = false; //
         Token _leftOp = new Token();
         Token _elementIndex = new Token();
-
         List<Token> _rightOp = new List<Token>();
         public void process(AssignmentStatment assignmentStatment)
         {
             VaribleStatment varibleStatment = (VaribleStatment)assignmentStatment.getTokensList()[0];
+
             if (varibleStatment.getTokensList().Count == 1) // для переменной
             {
+                Program.isArrayElementLeft = false;
                 _isArrayElementLeft = false;
                 _leftOp = (Token)varibleStatment.getTokensList()[0];
+                Program.varibleName = _leftOp.value;
+                SemanticAnalizer.checkIsDefine(_leftOp.value);
+                SemanticAnalizer.initVarible(_leftOp.value);
+
                 _rightOp = getRightOp(assignmentStatment.getTokensList()[1]);
             }
             else //элемент массива
             {
+                Program.isArrayElementLeft = true;
                 _isArrayElementLeft = true;
                 _leftOp = (Token)varibleStatment.getTokensList()[0];
+                Program.varibleName = _leftOp.value;
                 _elementIndex = (Token)varibleStatment.getTokensList()[2];
                 _rightOp = getRightOp(assignmentStatment.getTokensList()[1]);
+                SemanticAnalizer.checkArrayOnOutOfRange(_rightOp);
             }
+            SemanticAnalizer.checkDivByZero(_rightOp);
+            SemanticAnalizer.checkArrayOnOutOfRange(_rightOp);
             generate();
 
         }
@@ -106,6 +121,19 @@ namespace SyntaxAnalyser
             {
                 tokens.Add(token);
             }
+            SemanticAnalizer.checkVarible(_leftOp.value);
+            SemanticAnalizer.checkInitEmptyArray(_leftOp.value, tokens.Count);
+            SemanticAnalizer.checkIsLengthArrayEqual(_leftOp.value, tokens.Count);
+
+            if (_isArrayElementLeft)
+            {
+                SemanticAnalizer.incompatibleTypes();
+            }
+            else
+            {
+                SemanticAnalizer.checkCompareTypes(_leftOp.value, Constants.INTARRAY);
+            }
+
             return tokens;
         }
 
@@ -117,6 +145,13 @@ namespace SyntaxAnalyser
             {
                 tokens.AddRange(getFactor(item));
             }
+
+
+            if (!Program.isArrayElementLeft)
+            {
+                SemanticAnalizer.checkCompareTypes(Program.varibleName, Constants.INT);
+            }
+
             return tokens;
         }
 
@@ -159,6 +194,21 @@ namespace SyntaxAnalyser
             {
                 tokens.Add((Token)element);
             }
+
+            SemanticAnalizer.checkVarible(tokens[0].value);
+
+            if (tokens.Count == 4)
+            {
+                if (tokens[2].kind == Constants.IDENTIFIER)
+                {
+                    SemanticAnalizer.checkVarible(tokens[2].value);
+                }
+                else
+                {
+                    SemanticAnalizer.checkGetElementByIndex(Program.varibleName, Int32.Parse(tokens[2].value));
+                }
+            }
+
             return tokens;
         }
 
@@ -173,22 +223,6 @@ namespace SyntaxAnalyser
                 }
             }
             return Expression.Constant(Int32.Parse(value));
-            //for (int i = 0; i < vars.Count; i++)
-            //{
-            //    if (value == vars[i].Name)
-            //    {
-            //        for (int j = 0; j < vars.Count; j++)
-            //        {
-            //            if (value == vars[j].Name && vars[i].Type == typeof(int[]))
-            //                return Expression.ArrayAccess(vars[i], vars[j]);
-            //        }
-            //    }
-            //        else
-            //        {
-            //            return vars[i];
-            //        }
-            //}
-            //return Expression.Constant(Int32.Parse(value));
         }
 
         void generate()
@@ -279,63 +313,7 @@ namespace SyntaxAnalyser
                 }
                 ExpressionsList.AddExpression(Expression.Assign(left, result));
                 return;
-                //Expression left = null;
-
-                //for (int i = 0; i < vars.Count; i++)
-                //{
-                //    if (_leftOp.value == vars[i].Name)
-                //    {
-                //        bool isConst = true;
-                //        for (int j = 0; j < vars.Count; j++)
-                //        {
-                //            if (_elementIndex.value == vars[j].Name)
-                //            {
-                //                isConst = false;
-                //                left = Expression.ArrayAccess(vars[i], vars[j]);
-                //                break;
-                //            }
-                //        }
-                //        if (isConst)
-                //        {
-                //            left = Expression.ArrayAccess(vars[i], Expression.Constant(Int32.Parse(_elementIndex.value)));
-                //        }
-                //    }
-                //}
-                //for (int j = 0; j < _rightOp.Count - 1; j += 2)
-                //{
-                //    Expression rigth = GetConst(_rightOp[j + 2].value);
-                //    if (_rightOp[j + 1].value == "[")
-                //    {
-                //        left = Expression.ArrayAccess(GetConst(_rightOp[j].value), GetConst(_rightOp[j + 2].value));
-                //        j = j + 2;
-                //    }
-                //    switch (_rightOp[j + 1].value)
-                //    {
-                //        case "+":
-                //            ExpressionsList.AddExpression(Expression.Add(left, GetConst(_rightOp[j + 2].value)));
-                //            return;
-                //        case "-":
-                //            ExpressionsList.AddExpression(Expression.Subtract(left, GetConst(_rightOp[j + 2].value)));
-                //            return;
-                //        case "*":
-                //            ExpressionsList.AddExpression(Expression.Multiply(left, GetConst(_rightOp[j + 2].value)));
-                //            return;
-                //        case "%":
-                //            ExpressionsList.AddExpression(Expression.Modulo(left, GetConst(_rightOp[j + 2].value)));
-                //            return;
-                //        case "/":
-                //            ExpressionsList.AddExpression(Expression.Divide(left, GetConst(_rightOp[j + 2].value)));
-                //            return;
-                //    }
-                //}
-                //ExpressionsList.AddExpression(Expression.Assign(left, Expression.Constant(_rightOp[0].value)));
-                //return;
             }
-        }
-
-        void checkIsAssignArrayToArrayElement()
-        {
-
         }
 
     }
@@ -352,6 +330,8 @@ namespace SyntaxAnalyser
                 VaribleStatment varibleStatment = (VaribleStatment)readStatment.getTokensList()[0];
                 _isArray = false;
                 _identifier = (Token)varibleStatment.getTokensList()[0];
+                SemanticAnalizer.checkIsDefine(_identifier.value);
+                SemanticAnalizer.initVarible(_identifier.value);
             }
             catch//для массива
             {
@@ -360,18 +340,27 @@ namespace SyntaxAnalyser
                 _identifier = tokens[0];
                 if (tokens.Count == 1)
                 {
+                    if (tokens[0].kind == Constants.CONST_INT)
+                    {
+                        SemanticAnalizer.readAndWriteToConts();
+                    }
+
                     _isArray = false;
                 }
-                else
+                else if (tokens.Count == 4 && (tokens[1].kind == Constants.BRACKET_L) && (tokens[3].kind == Constants.BRACKET_R))
                 {
                     _isArray = true;
                     _elementIndex = tokens[2];
+                }
+                else
+                {
+                    SemanticAnalizer.InvalidIdentifier();
                 }
             }
             generate();
         }
 
-            void generate()
+        void generate()
         {
             List<ParameterExpression> vars = VarExpressionsList.GetList();
             if (_isArray)
@@ -442,6 +431,7 @@ namespace SyntaxAnalyser
                 VaribleStatment varibleStatment = (VaribleStatment)writeStatment.getTokensList()[0];
                 _isArray = false;
                 _identifier = (Token)varibleStatment.getTokensList()[0];
+                SemanticAnalizer.checkVarible(_identifier.value);
             }
             catch//для массива
             {
@@ -450,12 +440,28 @@ namespace SyntaxAnalyser
                 _identifier = tokens[0];
                 if (tokens.Count == 1)
                 {
+                    if (tokens[0].kind == Constants.CONST_INT)
+                    {
+                        SemanticAnalizer.readAndWriteToConts();
+                    }
+                    else
+                    {
+                        SemanticAnalizer.checkVarible(tokens[0].value);
+                    }
                     _isArray = false;
+                }
+                else if (tokens.Count == 4 && (tokens[1].kind == Constants.BRACKET_L) && (tokens[3].kind == Constants.BRACKET_R))
+                {
+                    _isArray = true;
+                    if (tokens[2].kind == Constants.IDENTIFIER)
+                    {
+                        SemanticAnalizer.checkVarible(tokens[2].value);
+                    }
+                    _elementIndex = tokens[2];
                 }
                 else
                 {
-                    _isArray = true;
-                    _elementIndex = tokens[2];
+                    SemanticAnalizer.InvalidIdentifier();
                 }
 
             }
@@ -525,12 +531,21 @@ namespace SyntaxAnalyser
             isElseAppear = false;
             BoolStatment boolStatment = (BoolStatment)ifStatment.getTokensList()[0];
             _leftExpression = getLeftExpression((BoolExpression)boolStatment.getTokensList()[0]);
+            if (_leftExpression[0].kind == Constants.IDENTIFIER)
+            {
+                SemanticAnalizer.checkVarible(_leftExpression[0].value);
+            }
+            if (_leftExpression[2].kind == Constants.IDENTIFIER)
+            {
+                SemanticAnalizer.checkVarible(_leftExpression[2].value);
+            }
             _thenExpression = getElseAndThenStatments((StatmentPart)ifStatment.getTokensList()[1]);
 
             if (ifStatment.getTokensList().Count == 3)
             {
                 isElseAppear = true;
                 _elseExpression = getElseAndThenStatments((StatmentPart)ifStatment.getTokensList()[2]);
+
             }
             generate();
         }
@@ -602,7 +617,7 @@ namespace SyntaxAnalyser
             {
                 left_part = Expression.ArrayAccess(GetConst(_leftExpression[0].value), GetConst(_leftExpression[2].value));
                 value = _leftExpression[4].value;
-                if (_leftExpression[6].value == "[")
+                if (_leftExpression.Count > 6)
                 {
                     rigth_part = Expression.ArrayAccess(GetConst(_leftExpression[5].value), GetConst(_leftExpression[7].value));
                 }
@@ -614,7 +629,7 @@ namespace SyntaxAnalyser
             else
             {
                 left_part = GetConst(_leftExpression[0].value);
-                if (_leftExpression[3].value == "[")
+                if (_leftExpression.Count > 3)
                 {
                     rigth_part = Expression.ArrayAccess(GetConst(_leftExpression[2].value), GetConst(_leftExpression[4].value));
                 }
@@ -745,11 +760,18 @@ namespace SyntaxAnalyser
     {
         List<Token> _leftExpression = new List<Token>();
         List<object> _rightExpression = new List<object>();
-        
         public void process(WhileStatment whileStatment)
         {
             BoolStatment boolSatment = (BoolStatment)whileStatment.getTokensList()[0];
             _leftExpression = IfStatmentProcessor.getLeftExpression((BoolExpression)boolSatment.getTokensList()[0]);
+            if (_leftExpression[0].kind == Constants.IDENTIFIER)
+            {
+                SemanticAnalizer.checkVarible(_leftExpression[0].value);
+            }
+            if (_leftExpression[2].kind == Constants.IDENTIFIER)
+            {
+                SemanticAnalizer.checkVarible(_leftExpression[2].value);
+            }
             _rightExpression = IfStatmentProcessor.getElseAndThenStatments((StatmentPart)whileStatment.getTokensList()[1]);
             generate();
         }
